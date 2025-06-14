@@ -1,5 +1,18 @@
-FROM ubuntu:latest
-RUN apt-get update && apt-get install -y curl
-COPY ./app /app
+# Start from a minimal secure base image
+FROM debian:bullseye-slim
+
+LABEL maintainer="cncf@example.com"
+
+# Update and install vulnerable package (intentionally outdated)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wget=1.20.1-1.1 \
+        libssl1.1 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Dummy application step (can be anything)
 WORKDIR /app
-CMD ["/app/run_script.sh"]
+COPY . /app
+
+CMD ["/bin/bash"]
+
