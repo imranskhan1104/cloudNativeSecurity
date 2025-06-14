@@ -1,0 +1,9 @@
+springboot:
+  image:
+    repository: ikhanqualys/cncf-cloud-native-security
+    tag: latest
+  port: 8080
+
+nginx:
+  port: 80
+
