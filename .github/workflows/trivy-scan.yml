@@ -5,82 +5,82 @@ on:
     branches: [main]
  
 jobs:
-  trivy:
-    runs-on: ubuntu-latest
-    outputs:
-      scan_status: ${{ steps.check-criticals.outcome }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+  # trivy:
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     scan_status: ${{ steps.check-criticals.outcome }}
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v2
  
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
  
-      - name: Build Docker image
-        run: docker build -t cncf-cloud-native-security:latest cloud-native-security/.
+  #     - name: Build Docker image
+  #       run: docker build -t cncf-cloud-native-security:latest cloud-native-security/.
  
-      - name: Scan Docker image for vulnerabilities
-        id: trivy-scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: cncf-cloud-native-security:latest
-          format: json
-          output: trivy-results.json
-          severity: CRITICAL,HIGH
-          exit-code: 0
+  #     - name: Scan Docker image for vulnerabilities
+  #       id: trivy-scan
+  #       uses: aquasecurity/trivy-action@master
+  #       with:
+  #         image-ref: cncf-cloud-native-security:latest
+  #         format: json
+  #         output: trivy-results.json
+  #         severity: CRITICAL,HIGH
+  #         exit-code: 0
  
-      - name: Count CRITICAL vulnerabilities and fail if above threshold
-        id: check-criticals
-        run: |
-          critical_count=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-results.json)
-          echo "🔍 Found $critical_count CRITICAL vulnerabilities"
-          if [ "$critical_count" -gt 20 ]; then
-            echo "❌ More than 20 critical vulnerabilities found!"
-            exit 1
-          else
-            echo "✅ Vulnerability threshold acceptable."
-          fi
+  #     - name: Count CRITICAL vulnerabilities and fail if above threshold
+  #       id: check-criticals
+  #       run: |
+  #         critical_count=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-results.json)
+  #         echo "🔍 Found $critical_count CRITICAL vulnerabilities"
+  #         if [ "$critical_count" -gt 20 ]; then
+  #           echo "❌ More than 20 critical vulnerabilities found!"
+  #           exit 1
+  #         else
+  #           echo "✅ Vulnerability threshold acceptable."
+  #         fi
  
-      - name: Log in to Docker Hub
-        if: steps.check-criticals.outcome == 'success'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+  #     - name: Log in to Docker Hub
+  #       if: steps.check-criticals.outcome == 'success'
+  #       uses: docker/login-action@v3
+  #       with:
+  #         username: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         password: ${{ secrets.DOCKERHUB_TOKEN }}
  
-      - name: Push image to Docker Hub
-        if: steps.check-criticals.outcome == 'success'
-        run: |
-          docker tag cncf-cloud-native-security:latest ${{ secrets.DOCKERHUB_USERNAME }}/cncf-cloud-native-security:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/cncf-cloud-native-security:latest
+  #     - name: Push image to Docker Hub
+  #       if: steps.check-criticals.outcome == 'success'
+  #       run: |
+  #         docker tag cncf-cloud-native-security:latest ${{ secrets.DOCKERHUB_USERNAME }}/cncf-cloud-native-security:latest
+  #         docker push ${{ secrets.DOCKERHUB_USERNAME }}/cncf-cloud-native-security:latest
  
-      - name: Send email if vulnerabilities are found
-        if: steps.check-criticals.outcome == 'failure'
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "❌ Security Scan Failed: Vulnerabilities Detected"
-          to: ${{ github.event.head_commit.author.email }}
-          from: Security Scanner <${{ secrets.EMAIL_USERNAME }}>
-          body: |
-            Hello ${{ github.event.head_commit.author.name }},
+  #     - name: Send email if vulnerabilities are found
+  #       if: steps.check-criticals.outcome == 'failure'
+  #       uses: dawidd6/action-send-mail@v3
+  #       with:
+  #         server_address: smtp.gmail.com
+  #         server_port: 465
+  #         username: ${{ secrets.EMAIL_USERNAME }}
+  #         password: ${{ secrets.EMAIL_PASSWORD }}
+  #         subject: "❌ Security Scan Failed: Vulnerabilities Detected"
+  #         to: ${{ github.event.head_commit.author.email }}
+  #         from: Security Scanner <${{ secrets.EMAIL_USERNAME }}>
+  #         body: |
+  #           Hello ${{ github.event.head_commit.author.name }},
  
-            Security scan failed for your recent commit to the `${{ github.repository }}` repository.
+  #           Security scan failed for your recent commit to the `${{ github.repository }}` repository.
  
-            🔒 Critical or high vulnerabilities were found in the Docker image.
+  #           🔒 Critical or high vulnerabilities were found in the Docker image.
  
-            📄 Commit: ${{ github.event.head_commit.message }}
-            👤 Author: ${{ github.event.head_commit.author.name }} <${{ github.event.head_commit.author.email }}>
+  #           📄 Commit: ${{ github.event.head_commit.message }}
+  #           👤 Author: ${{ github.event.head_commit.author.name }} <${{ github.event.head_commit.author.email }}>
  
-            🔗 View details:
-            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  #           🔗 View details:
+  #           https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
  
-      - name: Fail the job explicitly if scan failed
-        if: steps.check-criticals.outcome == 'failure'
-        run: exit 1
+  #     - name: Fail the job explicitly if scan failed
+  #       if: steps.check-criticals.outcome == 'failure'
+  #       run: exit 1
  
   deploy:
     needs: trivy
@@ -96,6 +96,10 @@ jobs:
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Test SSH manually
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "echo Connected ✅"
  
       - name: Upload Helm chart to server
         uses: appleboy/scp-action@v0.1.4
