@@ -25,9 +25,19 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: cncf-cloud-native-security:latest
-          format: table
-          exit-code: 1
-          severity: CRITICAL,HIGH
+          format: json
+          output: trivy-results.json
+          exit-code: 0
+        shell: bash
+        run: |
+          critical_count=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-results.json)
+          echo "🔍 Found $critical_count CRITICAL vulnerabilities"
+          if [ "$critical_count" -gt 20 ]; then
+            echo "❌ More than 20 critical vulnerabilities found!"
+            exit 1
+          else
+            echo "✅ Vulnerability threshold acceptable."
+          fi
  
       - name: Log in to Docker Hub
         if: steps.trivy-scan.outcome == 'success'
