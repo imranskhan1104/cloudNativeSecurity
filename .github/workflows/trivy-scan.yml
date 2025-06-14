@@ -16,14 +16,12 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t cncf-cloud-native-security:latest .
-        run: docker build -t cncf-cloud-native-security:latest .
 
       - name: Scan Docker image for vulnerabilities
         id: trivy-scan
         continue-on-error: true
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: cncf-cloud-native-security:latest
           image-ref: cncf-cloud-native-security:latest
           format: table
           exit-code: 1
