@@ -5,7 +5,7 @@ on:
     branches: [main]
  
 jobs:
-  trivy:
+  build:
     runs-on: ubuntu-latest
     outputs:
       scan_status: ${{ steps.check-criticals.outcome }}
@@ -34,8 +34,8 @@ jobs:
         run: |
           critical_count=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-results.json)
           echo "🔍 Found $critical_count CRITICAL vulnerabilities"
-          if [ "$critical_count" -gt 20 ]; then
-            echo "❌ More than 20 critical vulnerabilities found!"
+          if [ "$critical_count" -gt 15 ]; then
+            echo "❌ More than 15 critical vulnerabilities found!"
             exit 1
           else
             echo "✅ Vulnerability threshold acceptable."
@@ -82,58 +82,58 @@ jobs:
         if: steps.check-criticals.outcome == 'failure'
         run: exit 1
  
-  deploy:
-    needs: trivy
-    if: needs.trivy.result == 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+  # deploy:
+  #   needs: trivy
+  #   if: needs.trivy.result == 'success'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v2
 
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+  #     - name: Setup SSH
+  #       run: |
+  #         mkdir -p ~/.ssh
+  #         echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
+  #         chmod 600 ~/.ssh/id_rsa
+  #         ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Test SSH manually
-        run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "echo Connected ✅"
+  #     - name: Test SSH manually
+  #       run: |
+  #         ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "echo Connected ✅"
  
-      - name: Upload Helm chart to server
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_KEY }}
-          source: "cloud-native-security/helm/*"
-          target: "~/cloud-native-security/helm"
+  #     - name: Upload Helm chart to server
+  #       uses: appleboy/scp-action@v0.1.4
+  #       with:
+  #         host: ${{ secrets.DEPLOY_HOST }}
+  #         username: ${{ secrets.DEPLOY_USER }}
+  #         key: ${{ secrets.DEPLOY_KEY }}
+  #         source: "cloud-native-security/helm/*"
+  #         target: "~/cloud-native-security/helm"
  
-      - name: Deploy using Helm
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_KEY }}
-          script: |
-            echo "✅ Connected to remote server"
+  #     - name: Deploy using Helm
+  #       uses: appleboy/ssh-action@v1.0.0
+  #       with:
+  #         host: ${{ secrets.DEPLOY_HOST }}
+  #         username: ${{ secrets.DEPLOY_USER }}
+  #         key: ${{ secrets.DEPLOY_KEY }}
+  #         script: |
+  #           echo "✅ Connected to remote server"
  
-            IMAGE_REPO="${{ secrets.DOCKERHUB_USERNAME }}/cncf-cloud-native-security"
-            IMAGE_TAG="latest"
+  #           IMAGE_REPO="${{ secrets.DOCKERHUB_USERNAME }}/cncf-cloud-native-security"
+  #           IMAGE_TAG="latest"
  
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+  #           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
  
-            echo "🧹 Cleaning up old Docker images..."
-            docker images "$IMAGE_REPO" --format "{{.ID}}" | xargs -r docker rmi -f
+  #           echo "🧹 Cleaning up old Docker images..."
+  #           docker images "$IMAGE_REPO" --format "{{.ID}}" | xargs -r docker rmi -f
  
-            echo "📥 Pulling latest Docker image..."
-            docker pull "$IMAGE_REPO:$IMAGE_TAG"
+  #           echo "📥 Pulling latest Docker image..."
+  #           docker pull "$IMAGE_REPO:$IMAGE_TAG"
  
-            echo "🚀 Deploying with Helm (upgrade only)..."
-            helm upgrade --install cncf-app ~/helm \
-              --set image.repository=$IMAGE_REPO \
-              --set image.tag=$IMAGE_TAG \
-              --namespace cncf \
-              --create-namespace
+  #           echo "🚀 Deploying with Helm (upgrade only)..."
+  #           helm upgrade --install cncf-app ~/helm \
+  #             --set image.repository=$IMAGE_REPO \
+  #             --set image.tag=$IMAGE_TAG \
+  #             --namespace cncf \
+  #             --create-namespace
  
