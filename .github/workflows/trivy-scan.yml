@@ -1,24 +1,24 @@
 name: Container Security Scan
- 
+
 on:
   push:
     branches: [main]
- 
+
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      scan_status: ${{ steps.check-criticals.outcome }}
+      scan_status: ${{ steps.check-criticals.conclusion }}  # Fixed here too
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
- 
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
- 
+
       - name: Build Docker image
         run: docker build -t cncf-cloud-native-security:latest cloud-native-security/.
- 
+
       - name: Scan Docker image for vulnerabilities
         id: trivy-scan
         uses: aquasecurity/trivy-action@master
@@ -28,7 +28,7 @@ jobs:
           output: trivy-results.json
           severity: CRITICAL,HIGH
           exit-code: 0
- 
+
       - name: Count CRITICAL vulnerabilities and fail if above threshold
         id: check-criticals
         run: |
@@ -36,25 +36,26 @@ jobs:
           echo "🔍 Found $critical_count CRITICAL vulnerabilities"
           if [ "$critical_count" -gt 15 ]; then
             echo "❌ More than 15 critical vulnerabilities found!"
+            exit 1
           else
             echo "✅ Vulnerability threshold acceptable."
           fi
- 
+
       - name: Log in to Docker Hub
-        if: steps.check-criticals.outcome == 'success'
+        if: steps.check-criticals.conclusion == 'success'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
- 
+
       - name: Push image to Docker Hub
-        if: steps.check-criticals.outcome == 'success'
+        if: steps.check-criticals.conclusion == 'success'
         run: |
           docker tag cncf-cloud-native-security:latest ${{ secrets.DOCKERHUB_USERNAME }}/cncf-cloud-native-security:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/cncf-cloud-native-security:latest
- 
+
       - name: Send email if vulnerabilities are found
-        if: steps.check-criticals.outcome == 'failure'
+        if: steps.check-criticals.conclusion == 'failure'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -66,19 +67,20 @@ jobs:
           from: Security Scanner <${{ secrets.EMAIL_USERNAME }}>
           body: |
             Hello ${{ github.event.head_commit.author.name }},
- 
+
             Security scan failed for your recent commit to the `${{ github.repository }}` repository.
- 
+
             🔒 Critical or high vulnerabilities were found in the Docker image.
- 
+
             📄 Commit: ${{ github.event.head_commit.message }}
             👤 Author: ${{ github.event.head_commit.author.name }} <${{ github.event.head_commit.author.email }}>
- 
+
             🔗 View details:
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
- 
+          debug: true  # Optional: helps diagnose email issues
+
       - name: Fail the job explicitly if scan failed
-        if: steps.check-criticals.outcome == 'failure'
+        if: steps.check-criticals.conclusion == 'failure'
         run: exit 1
  
   # deploy:
