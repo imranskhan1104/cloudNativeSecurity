@@ -6,7 +6,7 @@ LABEL maintainer="cncf@example.com"
 # Update and install vulnerable package (intentionally outdated)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        wget=1.20.1-1.1 \
+        wget \
         libssl1.1 && \
     rm -rf /var/lib/apt/lists/*
 
